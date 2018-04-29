@@ -20,14 +20,14 @@
       <input type="text" id="entryContent" />
       <button type="submit" id="readEntry">Read</button>
     </form>
-    
+
     <div>
         <ul id="intents">
         </ul>
     </div>
 
     <script type="text/javascript">
-        $(function() { 
+        $(function() {
             var intents = getAllIntents();
         });
       document.getElementById("submitEntry").addEventListener("click", function(event){
@@ -42,7 +42,7 @@
               document.getElementById('entryContent').value = task.content
           })
       });
-      
+
   </script>
   </body>
 </html>

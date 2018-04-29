@@ -31,9 +31,9 @@ function intentRead (hash, callback) {
 function displayIntent(data) {
 
     $( "#intents" ).append( "<li>" + data.content + " " + data.timestamp);
-        
+
 }
-    
+
 
 function getAllIntents () {
     $.post({ url: '/fn/Intents/getAllIntents', data: '', dataType: "json", contentType: "application/json", success: function ( result ) {
@@ -46,7 +46,7 @@ function getAllIntents () {
             var timestamp = result[x].Entry.timestamp;
             $( "#intents" ).append( "<li>" + content + " " + timestamp );
         }
-            
+
     } } );
-        
+
 }

@@ -2,7 +2,7 @@
 
 Very simple start of an offers and needs app for Holochain.
 
-Copy-pastaed from holoworld.
+Copy-pasted from holoworld.
 
 ## To install and run:
 

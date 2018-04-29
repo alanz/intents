@@ -4,6 +4,7 @@
 
 // creates an intent entry
 function intentCreate (entry) {
+  entry.timestamp = new Date();
 
   // Commit post entry to my source chain
   var hash = commit('intent', entry);
@@ -20,6 +21,7 @@ function intentCreate (entry) {
   return hash;
 }
 
+
 // retrieves a holoWorldEntry entry
 function intentRead (hash) {
   return get(hash)
@@ -33,7 +35,7 @@ function getAllIntents () {
     }
     catch (error)
     {
-        
+
     }
     return links;
 }

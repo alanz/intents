@@ -3,7 +3,7 @@
     "UUID": "5e2bde1a-00b2-11e8-8916-8c859027cd3b",
     "Name": "Intents",
     "Properties": {
-        "description": "provides an application template",
+        "description": "Very simple start of an offers and needs app for Holochain.",
         "language": "en"
     },
     "PropertiesSchemaFile": "properties_schema.json",
@@ -20,6 +20,7 @@
                 {
                     "Name": "intent",
                     "DataFormat": "json",
+                    "SchemaFile": "intent.json",
                     "Sharing": "public"
                 },
                 {
