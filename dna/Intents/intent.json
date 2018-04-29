@@ -5,10 +5,13 @@
 		"content": {
 			"type": "string"
 		},
+		"type": {
+			"type": "string"
+		},
 		"timestamp": {
 			"type": "string"
 		}
 
 	},
-    "required": ["content","timestamp"]
+    "required": ["content","type","timestamp"]
 }

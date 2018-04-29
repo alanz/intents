@@ -1,4 +1,4 @@
-function intentCreate (task, callback) {
+function intentCreate (task, typ, callback) {
   var xhr = new XMLHttpRequest()
   var url = '/fn/Intents/intentCreate'
   xhr.open('POST', url, true)
@@ -9,7 +9,7 @@ function intentCreate (task, callback) {
     }
   }
   var timestamp = Math.floor(Date.now() / 1000);
-  var data = JSON.stringify({'content': task, 'timestamp': timestamp})
+  var data = JSON.stringify({'content': task, 'type': typ, 'timestamp': timestamp})
   xhr.send(data)
   displayIntent({content: task, timestamp: timestamp})
 }

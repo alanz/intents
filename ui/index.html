@@ -10,6 +10,7 @@
       <p>in the Hash text box below.</p>
       <label for="intent">Intent</label>
       <input type="text" id="intent" size="50" value="This text will be saved in Holochain" />
+      <input type="text" id="type" size="50" value="Offer" />
       <button type="submit" id="submitEntry">Submit</button>
     </form>
 
@@ -32,7 +33,7 @@
         });
       document.getElementById("submitEntry").addEventListener("click", function(event){
           event.preventDefault()
-          intentCreate(document.getElementById('intent').value, function(hash){
+          intentCreate(document.getElementById('intent').value, document.getElementById('type').value, function(hash){
             document.getElementById('hash').value = hash
           })
       });
