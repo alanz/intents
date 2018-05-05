@@ -1,0 +1,21 @@
+{
+  "private": true,
+  "name": "intents-holochain-app",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output",
+    "dist",
+
+    "dna",
+    "ui",
+    "ui.orig"
+  ],
+  "dependencies": {
+    "purescript-affjax": "*",
+    "purescript-halogen": "*",
+    "purescript-aff": "^4.0.0",
+    "purescript-psci-support": "*"
+  }
+}

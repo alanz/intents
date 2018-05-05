@@ -1,3 +1,8 @@
 .DS_Store
 *.notes
+bower_components
+node_modules
+.pulp-cache
 
+output
+/package-lock.json
