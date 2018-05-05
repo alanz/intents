@@ -2,6 +2,7 @@ module Component (State, Query(..), ui) where
 
 import Prelude
 import Control.Monad.Aff (Aff)
+import Data.Argonaut (class DecodeJson, class EncodeJson, encodeJson, decodeJson, jsonEmptyObject, (.?), (:=), (~>))
 import Data.Maybe (Maybe(..))
 import DOM (DOM)
 import DOM.Event.Event (Event, preventDefault)
@@ -74,10 +75,13 @@ ui =
     MakeRequest next -> do
       username <- H.gets _.username
       H.modify (_ { loading = true })
-      -- response <- H.liftAff $ AX.get ("https://api.github.com/users/" <> username)
-      -- response <- H.liftAff $ AX.get ("/fn/Intents/getAllIntents")
-      -- response <- H.liftAff $ AX.post "http://localhost:4141/fn/Intents/getAllIntents" ""
-      req :: AX.AffjaxResponse String <- H.liftAff intentCreate
+      -- let intent = Intent
+      --                { content = "Intent Content"
+      --                , typ = "Offer"
+      --                , timestamp = 1525534245
+      --                }
+      -- req :: AX.AffjaxResponse String <- H.liftAff (intentCreate intent)
+      req <- H.liftAff intentCreate
       response <- H.liftAff getAllIntents
       H.modify (_ { loading = false, result = Just response.response })
       pure next
@@ -85,11 +89,39 @@ ui =
       H.liftEff $ preventDefault e
       eval query
 
-intentCreate :: forall e b. Respondable b => AX.Affjax e b
-intentCreate = do
-  let intent = "{\"content\":\"This text will be saved in Holochain\",\"type\":\"Offer\",\"timestamp\":1525534245}"
+-- From http://codingstruggles.com/purescript/post-request-with-purescript-affjax-and-argonaut.html
+data Intent = Intent
+                { content :: String
+                 , typ :: String
+                 , timestamp :: Int
+                 }
 
-  AX.post "http://localhost:4141/fn/Intents/intentCreate" intent
+instance decodeJsonIntent :: DecodeJson Intent where
+  decodeJson json = do
+    obj <- decodeJson json
+    content   <- obj .? "content"
+    typ       <- obj .? "type"
+    timestamp <- obj .? "timestamp"
+    pure $ Intent { content, typ, timestamp }
+
+instance encodeJsonIntent :: EncodeJson Intent where
+  encodeJson (Intent intent)
+    = "content"    := intent.content
+    ~> "type"      := intent.typ
+    ~> "timestamp" := intent.timestamp
+    ~> jsonEmptyObject
+
+
+
+
+intentCreate :: forall e . AX.Affjax e String
+intentCreate = do
+  let intent = Intent { content: "Intent Content"
+                      , typ: "Offer"
+                      , timestamp: 1525534245
+                      }
+
+  AX.post "http://localhost:4141/fn/Intents/intentCreate" (encodeJson intent)
 
 -- post :: forall e a b. Requestable a => Respondable b => URL -> a -> Affjax e b
 
