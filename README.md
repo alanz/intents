@@ -127,3 +127,27 @@ Content-Type: text/plain; charset=utf-8
 
 "QmTFUsW69e9WcA2SfYaLC8eKx65uHrwEvotyn5nqzHmTWj"
 ```
+
+Reading an intent
+```
+POST /fn/Intents/intentRead HTTP/1.1
+Host: localhost:4141
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0
+Accept: */*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Referer: http://localhost:4141/
+Content-type: application/json
+Content-Length: 48
+DNT: 1
+Connection: keep-alive
+
+"QmR7f4ftRFpxFa7Ye8KGuEMoYQDuCHYshJS8wVaKdyTnGp"
+
+HTTP/1.1 200 OK
+Date: Sat, 05 May 2018 18:50:41 GMT
+Content-Length: 104
+Content-Type: text/plain; charset=utf-8
+
+{"content":"This text will be saved in Holochain","timestamp":"2018-05-05T18:50:40.260Z","type":"Offer"}
+```
