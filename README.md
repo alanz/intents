@@ -151,3 +151,25 @@ Content-Type: text/plain; charset=utf-8
 
 {"content":"This text will be saved in Holochain","timestamp":"2018-05-05T18:50:40.260Z","type":"Offer"}
 ```
+
+Getting all intents
+```
+POST /fn/Intents/getAllIntents HTTP/1.1
+Host: localhost:4141
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0
+Accept: application/json
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Referer: http://localhost:4141/
+Content-Length: 0
+Content-Type: text/plain;charset=UTF-8
+DNT: 1
+Connection: keep-alive
+
+HTTP/1.1 200 OK
+Date: Sun, 06 May 2018 18:15:35 GMT
+Content-Length: 501
+Content-Type: text/plain; charset=utf-8
+
+[{"Entry":{"content":"This text will be saved in Holochain","timestamp":"2018-05-06T18:15:33.125Z","type":"Offer"},"EntryType":"intent","Hash":"QmbtZRp6ibckQLJDGcp4umwL6K4iAPbbbi4n6QEBk37h8L","Source":"QmS85jqpzwsUaAnwjowbhkXvA9EfZAD6L3ToP85qw8S2BG"},{"Entry":{"content":"This text will be saved in Holochain","timestamp":"2018-05-06T18:14:37.733Z","type":"Offer"},"EntryType":"intent","Hash":"QmRLLxS2EReqCZyjem6AgDnEDrPYQeroywubMBzCNBQYHQ","Source":"QmS85jqpzwsUaAnwjowbhkXvA9EfZAD6L3ToP85qw8S2BG"}]
+```

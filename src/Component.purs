@@ -1,18 +1,25 @@
-module Component (State, Hash(..), Intent(..), Query(..), ui) where
+module Component
+  ( State
+  , Hash(..)
+  , Intent(..)
+  , IntentArray(..)
+  , HoloEntryArray(..)
+  , HoloEntry(..)
+  , Query(..)
+  , ui
+  ) where
 
 import Control.Monad.Aff (Aff)
 import Control.Monad.Except (ExceptT(..))
 import DOM (DOM)
 import DOM.Event.Event (Event, preventDefault)
-import Data.Argonaut (class DecodeJson, class EncodeJson, Json, encodeJson, decodeJson, jsonEmptyObject, (.?), (:=), (~>))
--- import Data.Argonaut.Generic.Argonaut as GA
+import Data.Argonaut ((.?), (:=), (~>))
+import Data.Argonaut as AG
 import Data.Bifunctor (lmap)
 import Data.Foreign (F, ForeignError(..))
--- import Data.Foreign.Generic as FG
 import Data.Generic (class Generic, gShow)
 import Data.Maybe (Maybe(..), maybe)
-import Data.MediaType.Common (textPlain)
--- import Data.MediaType.Common as MediaType
+import Data.MediaType.Common (applicationJSON)
 import Data.Tuple (Tuple(..))
 import Halogen as H
 import Halogen.HTML as HH
@@ -21,32 +28,41 @@ import Halogen.HTML.Properties as HP
 import Network.HTTP.Affjax as AX
 import Network.HTTP.Affjax.Response as AXR
 import Prelude
--- import Simple.JSON as SJ
--- import Unsafe.Coerce (unsafeCoerce)
 
 -- ---------------------------------------------------------------------
 
 
+-- The state of everything on the rendered page.  Used in the 'render'
+-- function to produce the final page.
 type State =
-  { loading :: Boolean
-  , intentText :: String
-  , intentType :: String
-  , createdHash :: Maybe Hash
+  { loading         :: Boolean
+  , intentText      :: String
+  , intentType      :: String
+  , createdHash     :: Maybe Hash
   , retrievedIntent :: Maybe Intent
-  , username :: String
-  , result :: Maybe String
+  , allIntents      :: HoloEntryArray Intent
+  , result          :: Maybe String
   }
 
+
+-- Actions that can originate from the page.
+-- The SetXXX ones relate to fields changing through user interaction,
+-- and map the change through to the underlying State.
+-- The MakeRequestXXX ones trigger an AJAX call to the holochain backend.
+-- PreventDefault is used to lock the page while an AJAX call is running
 data Query a
-  = SetUsername String a
-  | SetIntentText  String a
+  = SetIntentText  String a
   | SetIntentType  String a
   | SetCreatedHash String a
 
   | MakeRequestCreate a
   | MakeRequestRetrieve a
+  | MakeRequestGetAll a
   | PreventDefault Event (Query a)
 
+-- ---------------------------------------------------------------------
+
+-- Provide a description of the application, so that the event loop can run the application
 ui :: forall eff. H.Component HH.HTML Query Unit Void (Aff (dom :: DOM, ajax :: AX.AJAX | eff))
 ui =
   H.component
@@ -63,7 +79,7 @@ ui =
                  , intentType: "Offer"
                  , createdHash: Nothing
                  , retrievedIntent: Nothing
-                 , username: ""
+                 , allIntents: HoloEntryArray []
                  , result: Nothing }
 
   render :: State -> H.ComponentHTML Query
@@ -72,7 +88,7 @@ ui =
       [
       HH.form
         [ HE.onSubmit (HE.input $ \e a -> PreventDefault e (MakeRequestCreate a))]
-        [ HH.h1_ [ HH.text "Post an intent" ]
+        [ HH.h3_ [ HH.text "Post an intent" ]
 
         , HH.p_ [ HH.text "This will be stored in Holochain and the hash key for the new intent will be shown" ]
         , HH.p_ [ HH.text "in the Hash text box below." ]
@@ -99,10 +115,9 @@ ui =
             [ HH.text (if st.loading then "Working..." else "") ]
         ]
   -- -----------------------------------
-        , HH.p_ [ HH.text "hello world" ]
     , HH.form
         [ HE.onSubmit (HE.input $ \e a -> PreventDefault e (MakeRequestRetrieve a))]
-        [ HH.h1_ [ HH.text "Retrieve an intent" ]
+        [ HH.h3_ [ HH.text "Retrieve an intent" ]
 
         , HH.p_ [ HH.text "Press the Read button and the hash key will be used to retrieve the intent" ]
         , HH.label_
@@ -123,13 +138,9 @@ ui =
             [ HH.text (if st.loading then "Working..." else "") ]
         , HH.div_
             case st.retrievedIntent of
-              -- Nothing -> []
-              Nothing ->
-                [ HH.h2_
-                    [ HH.text "Read: Nothing" ]
-                ]
+              Nothing -> []
               Just res ->
-                [ HH.h2_
+                [ HH.h3_
                     [ HH.text "Read:" ]
                 , HH.pre_
                     [ HH.code_ [ HH.text (show res) ] ]
@@ -138,19 +149,32 @@ ui =
             case st.result of
               Nothing -> []
               Just res ->
-                [ HH.h2_
+                [ HH.h3_
                     [ HH.text "Response:" ]
                 , HH.pre_
                     [ HH.code_ [ HH.text res ] ]
                 ]
         ]
+      -- onClick  :: forall r i. (MouseEvent -> Maybe i) -> IProp (onClick :: MouseEvent | r) i
+      -- onSubmit :: forall r i. (Event      -> Maybe i) -> IProp (onSubmit :: Event | r)     i
+      , HH.button
+        [ HE.onClick (HE.input_ MakeRequestGetAll) ]
+        [ HH.text "get all intents" ]
+      , HH.div_
+        [ HH.text "All intents"
+        , HH.table_ (map renderHoloEntryIntent (getHoloEntries st.allIntents))
+          ]
       ]
+
+  renderHoloEntryIntent :: forall a b. HoloEntry Intent -> HH.HTML a b
+  renderHoloEntryIntent (HoloEntry { entry:he }) = renderIntent he
+
+  renderIntent :: forall a b. Intent -> HH.HTML a b
+  renderIntent (Intent { content:c, typ:t, timestamp:ts })
+    = HH.tr_ [HH.td_ [HH.text c], HH.td_ [HH.text t], HH.td_ [HH.text ts]   ]
 
   eval :: Query ~> H.ComponentDSL State Query Void (Aff (dom :: DOM, ajax :: AX.AJAX | eff))
   eval = case _ of
-    SetUsername username next -> do
-      H.modify (_ { username = username, result = Nothing :: Maybe String })
-      pure next
     SetIntentText text next -> do
       H.modify (_ { intentText = text, result = Nothing :: Maybe String })
       pure next
@@ -191,10 +215,15 @@ ui =
                       , result          = Just "no hash value"
                       })
           pure next
-      -- H.modify (_ { loading = false
-      --             , result          = Just ("hash value:" <> show mhash)
-      --             })
-      -- pure next
+
+    MakeRequestGetAll next -> do
+      response <- H.liftAff getAllIntents
+      H.modify (_ { loading = false
+                  , allIntents = response.response
+                  , result     = Just ("getAllIntents result:" <> show response.status)
+                  })
+      pure next
+
     PreventDefault e query -> do
       H.liftEff $ preventDefault e
       eval query
@@ -212,70 +241,160 @@ derive instance genericHash :: Generic Hash
 instance showHash :: Show Hash where
     show = gShow
 
-instance decodeJsonHash :: DecodeJson Hash where
+instance decodeJsonHash :: AG.DecodeJson Hash where
   decodeJson json = do
-    obj <- decodeJson json
+    obj <- AG.decodeJson json
     pure $ Hash obj
 
-instance encodeJsonHash :: EncodeJson Hash where
-  encodeJson (Hash hash) = encodeJson hash
+instance encodeJsonHash :: AG.EncodeJson Hash where
+  encodeJson (Hash hash) = AG.encodeJson hash
 
 -- -------------------------------------
 
+-- A Purescript representation of an 'Intent' as described in the DNA
 data Intent = Intent
                 { content    :: String
-                 , typ       :: String
-                 , timestamp :: String
-                 }
+                , typ       :: String
+                , timestamp :: String
+                }
 
 derive instance genericIntent :: Generic Intent
 
 instance showIntent :: Show Intent where
     show = gShow
 
-instance decodeJsonIntent :: DecodeJson Intent where
+instance decodeJsonIntent :: AG.DecodeJson Intent where
   decodeJson json = do
-    obj <- decodeJson json
+    obj <- AG.decodeJson json
     content   <- obj .? "content"
     typ       <- obj .? "type"
     timestamp <- obj .? "timestamp"
     pure $ Intent { content, typ, timestamp }
 
-instance encodeJsonIntent :: EncodeJson Intent where
+instance encodeJsonIntent :: AG.EncodeJson Intent where
   encodeJson (Intent intent)
     =  "content"   := intent.content
     ~> "type"      := intent.typ
     ~> "timestamp" := intent.timestamp
-    ~> jsonEmptyObject
+    ~> AG.jsonEmptyObject
+
+-- ---------------------------------------------------------------------
+
+data IntentArray = IntentArray (Array Intent)
+
+getIntents :: IntentArray -> (Array Intent)
+getIntents (IntentArray arr) = arr
+
+derive instance genericIntentArray :: Generic IntentArray
+
+instance showIntentArray :: Show IntentArray where
+    show = gShow
+
+instance decodeJsonIntentArray :: AG.DecodeJson IntentArray where
+  decodeJson json = do
+    obj <- AG.decodeJson json
+    pure $ IntentArray obj
+
+instance encodeJsonIntentArray :: AG.EncodeJson IntentArray where
+  encodeJson (IntentArray arr) = AG.encodeJson arr
+
+-- ---------------------------------------------------------------------
+
+data HoloEntryArray a = HoloEntryArray (Array (HoloEntry a))
+
+getHoloEntries :: forall a. HoloEntryArray a -> (Array (HoloEntry a))
+getHoloEntries (HoloEntryArray arr) = arr
+
+derive instance genericHoloEntryArray :: Generic a => Generic (HoloEntryArray a)
+
+instance showHoloEntryArray :: (Show a, Generic a) => Show (HoloEntryArray a) where
+    show = gShow
+
+instance decodeJsonHoloEntryArray :: AG.DecodeJson (HoloEntry a) => AG.DecodeJson (HoloEntryArray a) where
+  decodeJson json = do
+    obj <- AG.decodeJson json
+    pure $ HoloEntryArray obj
+
+instance encodeJsonHoloEntryArray :: (AG.EncodeJson (HoloEntry a)) => AG.EncodeJson (HoloEntryArray a) where
+  encodeJson (HoloEntryArray arr) = AG.encodeJson arr
+
+-- ---------------------------------------------------------------------
+
+{-
+
+[{"Entry":{"content":"This text will be saved in Holochain","timestamp":"2018-05-06T18:15:33.125Z","type":"Offer"}
+ ,"EntryType":"intent"
+ ,"Hash":"QmbtZRp6ibckQLJDGcp4umwL6K4iAPbbbi4n6QEBk37h8L"
+ ,"Source":"QmS85jqpzwsUaAnwjowbhkXvA9EfZAD6L3ToP85qw8S2BG"}
+]
+-}
+
+data HoloEntry a
+  = HoloEntry
+     { entry :: a
+     , entryType :: String
+     , entryHash :: Hash
+     , entrySource :: Hash
+     }
+
+derive instance genericHoloEntry :: Generic a => Generic (HoloEntry a)
+
+instance decodeJsonHoloEntry :: AG.DecodeJson a => AG.DecodeJson (HoloEntry a) where
+  decodeJson json = do
+    obj <- AG.decodeJson json
+    e    <- obj .? "Entry"
+    typ  <- obj .? "EntryType"
+    hash <- obj .? "Hash"
+    src  <- obj .? "Source"
+    pure $ HoloEntry { entry:e, entryType:typ, entryHash:hash, entrySource:src }
+
+instance encodeJsonHoloEntry :: AG.EncodeJson a => AG.EncodeJson (HoloEntry a) where
+  encodeJson (HoloEntry {entry:e, entryType:typ, entryHash:hash, entrySource:src})
+    =  "Entry"     := e
+    ~> "EntryType" := typ
+    ~> "Hash"      := hash
+    ~> "Source"    := src
+    ~> AG.jsonEmptyObject
+
+-- ---------------------------------------------------------------------
+
+instance responsableJsonIntent :: AXR.Respondable Intent where
+  responseType = Tuple (Just applicationJSON) AXR.JSONResponse
+  fromResponse = decodeJsonResponse <=< AXR.fromResponse
+
+instance responsableJsonHash :: AXR.Respondable Hash where
+  responseType = Tuple (Just applicationJSON) AXR.JSONResponse
+  fromResponse = decodeJsonResponse <=< AXR.fromResponse
+
+instance responsableJsonHoloEntry :: AG.DecodeJson (HoloEntry a) => AXR.Respondable (HoloEntry a) where
+  responseType = Tuple (Just applicationJSON) AXR.JSONResponse
+  fromResponse = decodeJsonResponse <=< AXR.fromResponse
+
+instance responsableJsonHoloEntryArray :: AG.DecodeJson (HoloEntry a) => AXR.Respondable (HoloEntryArray a) where
+  responseType = Tuple (Just applicationJSON) AXR.JSONResponse
+  fromResponse = decodeJsonResponse <=< AXR.fromResponse
 
 -- ---------------------------------------------------------------------
 -- See
 -- https://stackoverflow.com/questions/42927827/purescript-reuse-argonaut-json-decoding-for-affjax-respondeable
 -- It appears to be *way* more complicated than is should be
-instance responsableJsonIntent :: AXR.Respondable Intent where
-  -- responseType = Tuple (Just applicationJSON) JSONResponse
-  responseType = Tuple (Just textPlain      ) AXR.JSONResponse -- holo is broken
-  fromResponse = decodeJsonResponse <=< AXR.fromResponse
-
-instance responsableJsonHash :: AXR.Respondable Hash where
-  -- responseType = Tuple (Just applicationJSON) JSONResponse
-  responseType = Tuple (Just textPlain      ) AXR.JSONResponse -- holo is broken
-  fromResponse = decodeJsonResponse <=< AXR.fromResponse
-
-decodeJsonResponse :: forall a. DecodeJson a => Json -> F a
+decodeJsonResponse :: forall a. AG.DecodeJson a => AG.Json -> F a
 decodeJsonResponse =
-  ExceptT <<< pure <<< lmap (pure <<< ForeignError) <<< decodeJson
+  ExceptT <<< pure <<< lmap (pure <<< ForeignError) <<< AG.decodeJson
 
 -- ---------------------------------------------------------------------
 
+-- The DNA intentCreate call
 intentCreate :: forall e . Intent -> AX.Affjax e Hash
 intentCreate intent = do
-  AX.post "http://localhost:4141/fn/Intents/intentCreate" (encodeJson intent)
+  AX.post "/fn/Intents/intentCreate" (AG.encodeJson intent)
 
+-- The DNA intentRead call
 intentRead :: forall e . Hash -> AX.Affjax e Intent
-intentRead (Hash hash) = AX.post "/fn/Intents/intentRead" (encodeJson hash)
+intentRead (Hash hash) = AX.post "/fn/Intents/intentRead" (AG.encodeJson hash)
 
--- post :: forall e a b. Requestable a => Respondable b => URL -> a -> Affjax e b
-
-getAllIntents :: forall e b. AXR.Respondable b =>  AX.Affjax e b
+-- The DNA getAllIntents call
+getAllIntents :: forall e . AX.Affjax e (HoloEntryArray Intent)
 getAllIntents = AX.post "/fn/Intents/getAllIntents" ""
+
+-- ---------------------------------------------------------------------
